@@ -135,20 +135,21 @@ async def consultar_cedula(
     if len(cedula) < 9 or len(cedula) > 11:
         raise HTTPException(status_code=400, detail="Cédula inválida. Usa formato: 001-0000000-0")
     
-    # Hash de la cédula para privacidad
     cedula_hash = hashlib.sha256(cedula.encode()).hexdigest()[:16]
+    logger.info(f"Iniciando consulta para hash: {cedula_hash}")
     
     try:
-        # 1. Scraping en memoria — datos NUNCA se persisten
+        logger.info("Paso 1: Iniciando scraper Playwright...")
         datos_crudos = await scraper.consultar(cedula)
+        logger.info(f"Paso 1 OK: Scraping completado. Datos: {len(str(datos_crudos))} chars")
         
-        # 2. Análisis IA en RAM
+        logger.info("Paso 2: Enviando a Gemini AI...")
         resultado = await analyzer.analizar(datos_crudos, cedula)
+        logger.info(f"Paso 2 OK: Clasificacion = {resultado.get('clasificacion')}")
         
-        # 3. Limpiar datos crudos de memoria
         del datos_crudos
         
-        # 4. Solo guardar el reporte (sin datos sensibles)
+        logger.info("Paso 3: Guardando reporte en Firestore...")
         reporte_doc = {
             "uid": usuario["uid"],
             "cedula_hash": cedula_hash,
@@ -161,6 +162,7 @@ async def consultar_cedula(
         }
         
         db.collection("reportes").add(reporte_doc)
+        logger.info("Consulta completada exitosamente")
         
         return ReporteResponse(
             clasificacion=resultado["clasificacion"],
@@ -175,6 +177,7 @@ async def consultar_cedula(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error en consulta: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error en consulta: {str(e)}")
 
 
