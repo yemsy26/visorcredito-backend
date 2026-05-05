@@ -26,6 +26,8 @@ if not firebase_admin._apps:
     # Opción 1: JSON completo en variable de entorno (Railway)
     firebase_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
     if firebase_json:
+        # Fix: Railway puede escapar \n en la private_key → los restauramos
+        firebase_json = firebase_json.replace("\\n", "\n")
         service_account_info = json.loads(firebase_json)
         cred = credentials.Certificate(service_account_info)
     else:
