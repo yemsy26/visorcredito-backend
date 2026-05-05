@@ -1,11 +1,11 @@
 """
 VisorCredito - Backend API
-Consulta ProUsuario + Análisis IA con Gemini
 """
 import os
 import json
 import hashlib
 import asyncio
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -20,6 +20,9 @@ from scraper import ProUsuarioScraper
 from ai_analyzer import AIAnalyzer
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("visorcredito")
 
 # ─── Firebase Init ──────────────────────────────────────────────────────────
 if not firebase_admin._apps:
@@ -86,18 +89,21 @@ async def verificar_token(authorization: str = Header(...)) -> dict:
     try:
         decoded = firebase_auth.verify_id_token(id_token)
         uid = decoded["uid"]
+        logger.info(f"Token válido para UID: {uid}")
         
-        # Verificar que el usuario está aprobado
         user_ref = db.collection("usuarios").document(uid)
         user_doc = user_ref.get()
         
         if not user_doc.exists:
-            raise HTTPException(status_code=403, detail="Usuario no registrado")
+            logger.warning(f"UID {uid} no encontrado en Firestore/usuarios")
+            raise HTTPException(status_code=403, detail=f"Usuario no registrado. UID: {uid}")
         
         user_data = user_doc.to_dict()
         if not user_data.get("aprobado", False):
+            logger.warning(f"UID {uid} pendiente de aprobación")
             raise HTTPException(status_code=403, detail="Cuenta pendiente de aprobación")
         
+        logger.info(f"Acceso aprobado para UID: {uid}")
         return {"uid": uid, "email": decoded.get("email")}
     
     except firebase_auth.InvalidIdTokenError:
@@ -105,6 +111,7 @@ async def verificar_token(authorization: str = Header(...)) -> dict:
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error de autenticación: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Error de autenticación: {str(e)}")
 
 
