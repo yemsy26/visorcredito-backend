@@ -1,17 +1,12 @@
-FROM python:3.11-slim
-
-# Instalar dependencias de sistema para Playwright
-RUN apt-get update && apt-get install -y \
-    wget curl gnupg libnss3 libatk-bridge2.0-0 \
-    libdrm2 libxkbcommon0 libgbm1 libasound2 \
-    libxrandr2 libxfixes3 libxcomposite1 libxdamage1 \
-    fonts-liberation && rm -rf /var/lib/apt/lists/*
+# Imagen oficial de Playwright — ya incluye Chromium y todas las dependencias
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
 
 WORKDIR /app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN playwright install chromium --with-deps
 
+# No necesitamos instalar playwright browsers — ya vienen en la imagen base
 COPY . .
 
 EXPOSE 8000
