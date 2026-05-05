@@ -203,6 +203,7 @@ async def obtener_historial(usuario: dict = Depends(verificar_token)):
                 "nombre_referencia": data.get("nombre_referencia"),
                 "clasificacion": data.get("clasificacion"),
                 "emoji": data.get("emoji"),
+                "reporte": data.get("reporte", ""),
                 "recomendacion": data.get("recomendacion"),
                 "fecha": data.get("fecha", ""),
             })
