@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Usuarios: solo el propio usuario puede leer su doc
+    // Solo el backend (admin SDK) puede escribir
+    match /usuarios/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // Solo backend con Admin SDK
+    }
+
+    // Reportes: cada negocio solo ve sus propios reportes
+    match /reportes/{docId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == resource.data.uid;
+      allow write: if false; // Solo backend con Admin SDK
+    }
+  }
+}

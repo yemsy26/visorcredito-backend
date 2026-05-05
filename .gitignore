@@ -1,0 +1,21 @@
+# Secrets — NUNCA subir al repo
+.env
+firebase-service-account.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+
+# Playwright
+playwright/.local-browsers/
+
+# OS
+.DS_Store
+Thumbs.db
