@@ -4,19 +4,39 @@ Analiza datos en RAM — NUNCA almacena datos crudos.
 """
 import os
 import json
+import asyncio
+import logging
 from typing import Dict, Any
 import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
-
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+logger = logging.getLogger("visorcredito")
 
 
 class AIAnalyzer:
 
     def __init__(self):
-        self.model = genai.GenerativeModel(
+        pass  # Configuramos Gemini en cada llamada para leer env var correctamente
+
+    async def analizar(self, datos: Dict[str, Any], cedula: str) -> Dict[str, str]:
+        """
+        Analiza los datos de ProUsuario y genera un reporte de riesgo.
+        Los datos crudos solo pasan por esta función en memoria.
+        """
+        # Leer API key en el momento de la llamada (no al importar)
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            logger.error("GEMINI_API_KEY no está configurada en las variables de entorno")
+            return {
+                "clasificacion": "REGULAR",
+                "emoji": "🟡",
+                "reporte": "Error de configuración: API key de Gemini no encontrada.",
+                "recomendacion": "Contactar al administrador del sistema."
+            }
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             generation_config={
                 "temperature": 0.3,
@@ -25,20 +45,18 @@ class AIAnalyzer:
             }
         )
 
-    async def analizar(self, datos: Dict[str, Any], cedula: str) -> Dict[str, str]:
-        """
-        Analiza los datos de ProUsuario y genera un reporte de riesgo.
-        Los datos crudos solo pasan por esta función en memoria.
-        """
         resumen = self._preparar_resumen(datos)
         prompt = self._construir_prompt(resumen)
+        logger.info(f"Enviando prompt a Gemini ({len(prompt)} chars)")
 
         try:
-            response = self.model.generate_content(prompt)
+            # Usar asyncio.to_thread para no bloquear el event loop
+            response = await asyncio.to_thread(model.generate_content, prompt)
             resultado = json.loads(response.text)
 
             clasificacion = resultado.get("clasificacion", "REGULAR").upper()
             emoji_map = {"BUENO": "🟢", "REGULAR": "🟡", "RIESGO": "🔴"}
+            logger.info(f"Gemini respondió: {clasificacion}")
 
             return {
                 "clasificacion": clasificacion,
@@ -48,6 +66,7 @@ class AIAnalyzer:
             }
 
         except Exception as e:
+            logger.error(f"Error Gemini: {str(e)}")
             return {
                 "clasificacion": "REGULAR",
                 "emoji": "🟡",
