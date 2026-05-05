@@ -3,6 +3,7 @@ VisorCredito - Backend API
 Consulta ProUsuario + Análisis IA con Gemini
 """
 import os
+import json
 import hashlib
 import asyncio
 from datetime import datetime
@@ -21,9 +22,16 @@ from ai_analyzer import AIAnalyzer
 load_dotenv()
 
 # ─── Firebase Init ──────────────────────────────────────────────────────────
-service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "./firebase-service-account.json")
 if not firebase_admin._apps:
-    cred = credentials.Certificate(service_account_path)
+    # Opción 1: JSON completo en variable de entorno (Railway)
+    firebase_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+    if firebase_json:
+        service_account_info = json.loads(firebase_json)
+        cred = credentials.Certificate(service_account_info)
+    else:
+        # Opción 2: Archivo local (desarrollo)
+        service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "./firebase-service-account.json")
+        cred = credentials.Certificate(service_account_path)
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
