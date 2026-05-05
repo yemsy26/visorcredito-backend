@@ -37,19 +37,16 @@ class AIAnalyzer:
         ci  = datos.get("cuentas_inactivas") or {}
         pl  = datos.get("productos_liquidacion") or {}
         es  = datos.get("estatus_solicitudes") or {}
-        hc  = datos.get("historial_crediticio") or {}
-        da  = datos.get("deudas_activas") or {}
+        cb  = datos.get("cuenta_basica") or {}
         errores = datos.get("errores", [])
 
-        tiene_cuentas_inactivas    = ci.get("encontrado", False)
+        tiene_cuentas_inactivas     = ci.get("encontrado", False)
         tiene_productos_liquidacion = pl.get("encontrado", False)
-        tiene_solicitudes          = es.get("encontrado", False)
-        tiene_historial_negativo   = hc.get("encontrado", False)
-        tiene_deudas_activas       = da.get("encontrado", False)
+        tiene_solicitudes           = es.get("encontrado", False)
+        tiene_cuenta_basica         = cb.get("encontrado", False)
         num_errores = len(errores)
 
-        # ─── Clasificación ───────────────────────────────────────────────────
-        if tiene_cuentas_inactivas or tiene_productos_liquidacion or tiene_deudas_activas:
+        if tiene_cuentas_inactivas or tiene_productos_liquidacion:
             clasificacion = "RIESGO"
             emoji = "🔴"
             hallazgos = []
@@ -57,56 +54,46 @@ class AIAnalyzer:
                 hallazgos.append("cuentas inactivas o abandonadas")
             if tiene_productos_liquidacion:
                 hallazgos.append("productos en entidades liquidadas")
-            if tiene_deudas_activas:
-                hallazgos.append(f"deudas activas registradas: {da.get('mensaje','')[:150]}")
             reporte = (
-                f"⚠️ Se detectaron alertas críticas: {'; '.join(hallazgos)}. "
-                "Este perfil presenta riesgos financieros que requieren atención inmediata."
+                f"⚠️ Alertas detectadas: {'; '.join(hallazgos)}. "
+                "Este perfil presenta señales de riesgo que requieren atención."
             )
             recomendacion = (
-                "NO se recomienda otorgar crédito. Solicitar documentación explicativa "
-                "y verificar estado actual de las deudas reportadas."
+                "NO se recomienda otorgar crédito sin verificación adicional. "
+                "Solicitar documentación explicativa al cliente."
             )
 
-        elif tiene_historial_negativo or tiene_solicitudes:
-            clasificacion = "REGULAR"
-            emoji = "🟡"
-            detalle = []
-            if tiene_historial_negativo:
-                detalle.append(f"historial crediticio con atrasos: {hc.get('mensaje','')[:150]}")
-            if tiene_solicitudes:
-                detalle.append("reclamaciones o solicitudes activas")
-            reporte = (
-                f"El cliente presenta irregularidades menores: {'; '.join(detalle)}. "
-                "Se recomienda evaluar con cuidado antes de proceder."
-            )
-            recomendacion = (
-                "Proceder con precaución. Puede otorgar crédito limitado con garantías adicionales. "
-                "Verificar si el historial negativo ha sido resuelto."
-            )
-
-        elif num_errores >= 4:
+        elif tiene_solicitudes:
             clasificacion = "REGULAR"
             emoji = "🟡"
             reporte = (
-                "No fue posible completar todas las consultas a ProUsuario. "
-                "Los sistemas externos pueden estar temporalmente no disponibles."
+                "El cliente presenta reclamaciones o solicitudes activas ante la "
+                "Superintendencia de Bancos. Puede indicar disputas financieras pendientes."
             )
+            recomendacion = (
+                "Proceder con precaución. Verificar naturaleza de las reclamaciones "
+                "antes de otorgar crédito."
+            )
+
+        elif num_errores >= 3:
+            clasificacion = "REGULAR"
+            emoji = "🟡"
+            reporte = "No fue posible completar todas las consultas a ProUsuario. Fuentes temporalmente no disponibles."
             recomendacion = "Reintentar la consulta más tarde o verificar manualmente en prousuario.gob.do."
 
         else:
             clasificacion = "BUENO"
             emoji = "🟢"
-            fuentes_ok = sum([not ci.get("error"), not pl.get("error"),
-                              not es.get("error"), not hc.get("error"), not da.get("error")])
+            extras = " Tiene cuenta básica registrada en el sistema bancario." if tiene_cuenta_basica else ""
             reporte = (
-                f"✅ No se encontraron alertas en {fuentes_ok} fuentes consultadas. "
-                "Sin cuentas abandonadas, sin deudas activas registradas, sin atrasos "
-                "en historial crediticio y sin reclamaciones pendientes."
+                "✅ No se encontraron alertas en las fuentes públicas consultadas de ProUsuario. "
+                "Sin cuentas abandonadas, sin productos en entidades liquidadas "
+                f"y sin reclamaciones pendientes.{extras}"
             )
             recomendacion = (
-                "Perfil financiero favorable. Puede proceder con normalidad. "
-                "Se recomienda mantener controles de crédito estándar."
+                "Perfil financiero favorable según fuentes públicas disponibles. "
+                "Para detalles de historial crediticio y montos de deuda, solicitar al cliente "
+                "su reporte personal de app.prousuario.gob.do."
             )
 
         return {
