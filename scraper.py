@@ -88,43 +88,56 @@ class ProUsuarioScraper:
         resultado = {"encontrado": False, "mensaje": "Sin resultados"}
 
         try:
-            # domcontentloaded es mucho más rápido que networkidle
             logger.info(f"Navegando a {url}...")
             await page.goto(url, wait_until="domcontentloaded", timeout=25000)
-            await asyncio.sleep(random.uniform(1.5, 2.5))
+            await asyncio.sleep(2.0)
 
             # Buscar input de cedula
             selectores_input = [
                 "input[name*='cedula']", "input[placeholder*='dula']",
                 "input[id*='cedula']", "input[id*='Cedula']",
-                "input[type='text']:first-of-type",
+                "input[name*='search']", "input[id*='search']",
+                "input[type='text']",
             ]
             input_el = None
+            selector_usado = None
             for sel in selectores_input:
                 try:
-                    el = page.locator(sel).first
-                    if await el.count() > 0:
-                        input_el = el
+                    count = await page.locator(sel).count()
+                    if count > 0:
+                        input_el = page.locator(sel).first
+                        selector_usado = sel
                         logger.info(f"Input encontrado con selector: {sel}")
                         break
                 except:
                     pass
 
             if input_el:
-                await input_el.click()
-                await asyncio.sleep(0.3)
-                await input_el.fill(cedula)
-                await asyncio.sleep(random.uniform(0.5, 1.0))
+                try:
+                    # Intentar fill directo (sin click) para manejar inputs ocultos
+                    await input_el.fill(cedula, timeout=5000)
+                except:
+                    try:
+                        # Forzar interacción si el elemento no es visible
+                        await page.evaluate(
+                            f"document.querySelector('{selector_usado}').value = '{cedula}'"
+                        )
+                    except Exception as e:
+                        logger.warning(f"No se pudo llenar el input: {e}")
+
+                await asyncio.sleep(0.5)
 
                 # Buscar botón submit
                 submitted = False
-                for sel in ["button[type='submit']", "button:has-text('Buscar')", "button:has-text('Consultar')", "input[type='submit']"]:
+                for sel in ["button[type='submit']", "button:has-text('Buscar')",
+                            "button:has-text('Consultar')", "input[type='submit']",
+                            "button:has-text('Search')"]:
                     try:
-                        btn = page.locator(sel).first
-                        if await btn.count() > 0:
-                            await btn.click()
+                        count = await page.locator(sel).count()
+                        if count > 0:
+                            await page.locator(sel).first.click(timeout=5000)
                             submitted = True
-                            logger.info(f"Botón clickeado: {sel}")
+                            logger.info(f"Boton clickeado: {sel}")
                             break
                     except:
                         pass
@@ -133,16 +146,15 @@ class ProUsuarioScraper:
                     await page.keyboard.press("Enter")
                     logger.info("Submit via Enter")
 
-                # Esperar resultados (domcontentloaded approach)
-                await asyncio.sleep(random.uniform(3.0, 4.0))
+                await asyncio.sleep(3.5)
 
                 # Extraer texto de resultados
                 texto = await page.evaluate("""
                     () => {
-                        const els = document.querySelectorAll('table, .resultado, [class*="result"], [class*="card"], .alert, .message');
+                        const els = document.querySelectorAll('table, .resultado, [class*="result"], [class*="card"], .alert, .message, p');
                         let t = [];
-                        els.forEach(e => { if(e.innerText && e.innerText.trim().length > 5) t.push(e.innerText.trim()); });
-                        return t.slice(0, 10).join('\n---\n');
+                        els.forEach(e => { if(e.innerText && e.innerText.trim().length > 10) t.push(e.innerText.trim()); });
+                        return t.slice(0, 8).join('\n---\n');
                     }
                 """)
 
@@ -150,8 +162,10 @@ class ProUsuarioScraper:
                     resultado["encontrado"] = True
                     resultado["mensaje"] = texto[:800]
                 else:
-                    # fallback: contenido del main
-                    main = await page.evaluate("() => { const m = document.querySelector('main, [role=\"main\"], #content, .content'); return m ? m.innerText : document.body.innerText; }")
+                    main = await page.evaluate(
+                        "() => { const m = document.querySelector('main, [role=\"main\"], #content, .content'); "
+                        "return m ? m.innerText : document.body.innerText.slice(0, 400); }"
+                    )
                     resultado["mensaje"] = (main or "Sin datos")[:500]
             else:
                 resultado["mensaje"] = "Formulario no encontrado en la pagina"
@@ -159,7 +173,7 @@ class ProUsuarioScraper:
 
         except Exception as e:
             resultado["error"] = str(e)
-            logger.error(f"Exception en _consultar_pagina({url}): {str(e)}")
+            logger.error(f"Exception en _consultar_pagina({url}): {str(e)[:200]}")
         finally:
             await page.close()
 
