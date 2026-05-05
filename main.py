@@ -185,16 +185,16 @@ async def consultar_cedula(
 async def obtener_historial(usuario: dict = Depends(verificar_token)):
     """Retorna el historial de consultas del negocio (solo reportes, sin datos crudos)."""
     try:
+        # Sin order_by para evitar requerir índice compuesto en Firestore
         reportes_ref = (
             db.collection("reportes")
             .where("uid", "==", usuario["uid"])
-            .order_by("fecha", direction=firestore.Query.DESCENDING)
             .limit(100)
         )
-        
+
         docs = reportes_ref.stream()
         historial = []
-        
+
         for doc in docs:
             data = doc.to_dict()
             historial.append({
@@ -204,11 +204,14 @@ async def obtener_historial(usuario: dict = Depends(verificar_token)):
                 "clasificacion": data.get("clasificacion"),
                 "emoji": data.get("emoji"),
                 "recomendacion": data.get("recomendacion"),
-                "fecha": data.get("fecha"),
+                "fecha": data.get("fecha", ""),
             })
-        
+
+        # Ordenar por fecha descendente en Python
+        historial.sort(key=lambda x: x.get("fecha", ""), reverse=True)
+
         return {"historial": historial, "total": len(historial)}
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

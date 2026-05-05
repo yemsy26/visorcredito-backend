@@ -21,6 +21,8 @@ CONSULTAS = {
     "cuentas_inactivas": "https://prousuario.gob.do/consultas/cuentas-inactivas-y-abandonadas/",
     "productos_liquidacion": "https://prousuario.gob.do/consultas/productos-en-entidades-en-liquidacion/",
     "estatus_solicitudes": "https://prousuario.gob.do/consultas/estatus-de-solicitudes/",
+    "historial_crediticio": "https://prousuario.gob.do/consultas/historial-de-credito/",
+    "deudas_activas": "https://prousuario.gob.do/consultas/deudas/",
 }
 
 # Flags optimizados para contenedores Docker (Railway)
